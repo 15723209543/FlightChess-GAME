@@ -10,7 +10,7 @@ board::board() : numplayers(4) {
 void board::init(int count) {
     numplayers = count;          // numplayers：当前游戏人数，影响起点间距和颜色循环。
     build_track();               // build_track：生成正六边形公共跑道。
-    build_special();             // build_special：生成奖励、惩罚、陷阱、起点格。
+    build_special();             // build_special：生成黑色陷阱和起点格。
     build_lanes();               // build_lanes：生成每个玩家的终点列。
 }
 
@@ -64,37 +64,31 @@ void board::build_track() {
     }
 }
 
-// 构建特殊格：奖励、惩罚、黑色陷阱和每个玩家的起点。
+// 构建特殊格：只保留黑色陷阱和每个玩家的起点。
 void board::build_special() {
-    rewardmap.clear();                       // rewardmap：奖励格，格号到前进步数。
-    punishmap.clear();                       // punishmap：惩罚格，格号到后退步数。
     trapmap.clear();                         // trapmap：黑色陷阱格，每条边一个。
 
-    int rewards[] = {4, 17, 31, 44, 56};     // rewards：奖励格位置。
-    int rewardsteps[] = {4, 3, 5, 4, 3};     // rewardsteps：对应奖励前进步数。
-    int punishs[] = {9, 23, 37, 51};         // punishs：惩罚格位置。
-    int punishsteps[] = {3, 4, 3, 5};        // punishsteps：对应惩罚后退步数。
-    int traps[] = {5, 15, 25, 35, 45, 55};   // traps：每条边中部的黑色陷阱。
-
-    for (int i = 0; i < 5; ++i) {
-        rewardmap[rewards[i]] = rewardsteps[i];
-        cells[rewards[i]].type = CELL_REWARD;
-        cells[rewards[i]].owner = -1;
-    }
-    for (int i = 0; i < 4; ++i) {
-        punishmap[punishs[i]] = punishsteps[i];
-        cells[punishs[i]].type = CELL_PUNISH;
-        cells[punishs[i]].owner = -1;
-    }
-    for (int i = 0; i < 6; ++i) {
-        trapmap[traps[i]] = 1;
-        cells[traps[i]].type = CELL_TRAP;
-        cells[traps[i]].owner = -1;
-    }
     for (int i = 0; i < numplayers; ++i) {
         int start = i * TRACK_COUNT / numplayers;
         cells[start].type = CELL_START;
         cells[start].owner = i;
+    }
+
+    int offsets[] = {5, 4, 6, 3, 7};         // offsets：陷阱优先放在每条边中间，遇到起点就向旁边挪。
+    for (int side = 0; side < 6; ++side) {
+        int trap = -1;                       // trap：当前边最终选中的陷阱格。
+        for (int i = 0; i < 5; ++i) {
+            int idx = side * 10 + offsets[i];
+            if (cells[idx].type != CELL_START) {
+                trap = idx;
+                break;
+            }
+        }
+        if (trap >= 0) {
+            trapmap[trap] = 1;
+            cells[trap].type = CELL_TRAP;
+            cells[trap].owner = -1;
+        }
     }
 }
 
@@ -189,11 +183,7 @@ void board::draw_one_cell(int index) const {
     COLORREF fill = COLOR_WHITE;
     COLORREF line = RGB(98, 106, 124);
 
-    if (one.type == CELL_REWARD) {
-        fill = RGB(204, 238, 210);
-    } else if (one.type == CELL_PUNISH) {
-        fill = RGB(247, 205, 196);
-    } else if (one.type == CELL_TRAP) {
+    if (one.type == CELL_TRAP) {
         fill = RGB(235, 238, 244);
     } else if (one.owner >= 0 && one.owner < numplayers) {
         int light = (index % 2 == 0) ? 68 : 78;
@@ -207,11 +197,7 @@ void board::draw_one_cell(int index) const {
 
     draw_hex(one.cx, one.cy, 18, fill, line, one.type == CELL_START ? 2 : 1);
 
-    if (one.type == CELL_REWARD) {
-        draw_mark(one.cx, one.cy, L"+", COLOR_GOOD);
-    } else if (one.type == CELL_PUNISH) {
-        draw_mark(one.cx, one.cy, L"-", COLOR_DANGER);
-    } else if (one.type == CELL_TRAP) {
+    if (one.type == CELL_TRAP) {
         setfillcolor(RGB(20, 24, 32));
         setlinecolor(RGB(20, 24, 32));
         fillcircle(one.cx, one.cy, 11);

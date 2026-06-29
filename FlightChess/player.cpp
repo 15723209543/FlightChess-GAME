@@ -3,7 +3,7 @@
 // piece 构造函数：初始化单个棋子的默认状态和计数。
 piece::piece()
     : id(0), owner(0), state(PIECE_BASE), trackpos(0), finishpos(-1),
-      skipturns(0), trapcount(0), extralaps(0) {
+      skipturns(0), skipfresh(false), trapcount(0), extralaps(0) {
 }
 
 // reset：把棋子放回基地，并清空暂停、陷阱和额外圈数记录。
@@ -12,6 +12,7 @@ void piece::reset() {
     trackpos = 0;
     finishpos = -1;
     skipturns = 0;
+    skipfresh = false;
     trapcount = 0;
     extralaps = 0;
 }

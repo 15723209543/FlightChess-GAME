@@ -410,7 +410,45 @@ void game::draw_progress(int x, int y) {
         solidrectangle(x, y + 4, x + 24, y + 28);
         std::wstring text = std::wstring(player_name(i)) + L"完成任务进度  " +
                             std::to_wstring(finished) + L"/" + std::to_wstring(total);
-        draw_text_left(x + 34, y + 3, text, COLOR_TEXT, 15);
+
+        // statustext：显示本队棋子的当前特殊状态，罚圈全程显示，停止一次结束后消失。
+        std::wstring statustext;
+        int statuscount = 0; // statuscount：已写入进度行的特殊状态数量，避免文字过长。
+        bool morestatus = false; // morestatus：状态过多时用“等”提示。
+        for (int k = 0; k < total; ++k) {
+            const piece& one = players[i].pieces[k];
+            if (one.extralaps > 0) {
+                if (statuscount < 2) {
+                    if (!statustext.empty()) {
+                        statustext += L"；";
+                    }
+                    statustext += std::to_wstring(one.id + 1) + L"号多跑";
+                    statustext += one.extralaps == 1 ? L"一圈" : std::to_wstring(one.extralaps) + L"圈";
+                } else {
+                    morestatus = true;
+                }
+                ++statuscount;
+            }
+            if (one.skipturns > 0) {
+                if (statuscount < 2) {
+                    if (!statustext.empty()) {
+                        statustext += L"；";
+                    }
+                    statustext += std::to_wstring(one.id + 1) + L"号停止一次";
+                } else {
+                    morestatus = true;
+                }
+                ++statuscount;
+            }
+        }
+        if (morestatus) {
+            statustext += L"等";
+        }
+
+        draw_text_left(x + 34, y + 3, text, COLOR_TEXT, statustext.empty() ? 15 : 14);
+        if (!statustext.empty()) {
+            draw_text_left(x + 230, y + 4, statustext, RGB(169, 91, 25), 13);
+        }
         int barx = x + 34;
         int bary = y + 27;
         int barw = PANEL_W - 94;
@@ -681,6 +719,11 @@ void game::start_play() {
 
 // 掷骰：随机生成点数并判断是否有棋子可走。
 void game::roll_dice() {
+    for (int i = 0; i < (int)players[curplayer].pieces.size(); ++i) {
+        if (players[curplayer].pieces[i].skipturns > 0) {
+            players[curplayer].pieces[i].skipfresh = false;
+        }
+    }
     hasrolled = true;
     special = L"无";
     jumpactive = false;
@@ -848,6 +891,10 @@ void game::reduce_skips(int owner) {
     }
     for (int i = 0; i < (int)players[owner].pieces.size(); ++i) {
         if (players[owner].pieces[i].skipturns > 0) {
+            if (players[owner].pieces[i].skipfresh) {
+                players[owner].pieces[i].skipfresh = false;
+                continue;
+            }
             --players[owner].pieces[i].skipturns;
         }
     }
@@ -860,26 +907,15 @@ std::wstring game::apply_special(piece& one, int owner) {
     }
     int pos = one.trackpos;
 
-    auto reward = gameboard.rewardmap.find(pos);
-    if (reward != gameboard.rewardmap.end()) {
-        int step = reward->second;
-        moveresult res = gameboard.move(pos, step, players[owner].startpos);
-        if (res.enterfinish && res.valid) {
-            one.state = PIECE_FINISH;
-            one.finishpos = res.finishpos;
-        } else if (!res.enterfinish) {
-            one.trackpos = res.newpos;
+    if (gameboard.cells[pos].type == CELL_START &&
+        gameboard.cells[pos].owner >= 0 &&
+        gameboard.cells[pos].owner != owner) {
+        if (one.skipturns < 1) {
+            one.skipturns = 1;
         }
-        special = L"奖励前进 " + std::to_wstring(step) + L" 格";
-        return L" 触发奖励，前进 " + std::to_wstring(step) + L" 格。";
-    }
-
-    auto punish = gameboard.punishmap.find(pos);
-    if (punish != gameboard.punishmap.end()) {
-        int step = punish->second;
-        one.trackpos = (pos - step + TRACK_COUNT) % TRACK_COUNT;
-        special = L"惩罚后退 " + std::to_wstring(step) + L" 格";
-        return L" 触发惩罚，后退 " + std::to_wstring(step) + L" 格。";
+        one.skipfresh = true;
+        special = L"别人起点：停一回合";
+        return L" 落到" + player_title(gameboard.cells[pos].owner) + L"的起点，该棋子停一个回合。";
     }
 
     auto trap = gameboard.trapmap.find(pos);
@@ -895,20 +931,28 @@ std::wstring game::apply_special(piece& one, int owner) {
         return L" 进入黑色陷阱，本圈已踩中1次。";
     }
 
-    if (gameboard.cells[pos].type == CELL_START &&
-        gameboard.cells[pos].owner >= 0 &&
-        gameboard.cells[pos].owner != owner) {
-        if (one.skipturns < 2) {
-            one.skipturns = 2;
-        }
-        special = L"别人起点：停一回合";
-        return L" 落到" + player_title(gameboard.cells[pos].owner) + L"的起点，该棋子停一个回合。";
-    }
-
     if (gameboard.cells[pos].type == CELL_NORMAL && gameboard.cells[pos].owner == owner) {
         int next = gameboard.next_color_cell(pos, owner);
         if (next >= 0 && next != pos) {
             int from = pos;
+
+            // 如果同色跳跃会碰到或越过本队终点入口，直接进入停车区最里面，
+            // 避免终点前一格继续跳到外圈其他颜色位置。
+            int endpos = (players[owner].startpos + TRACK_COUNT - 1) % TRACK_COUNT;
+            int disttoend = (endpos - pos + TRACK_COUNT) % TRACK_COUNT;
+            int disttonext = (next - pos + TRACK_COUNT) % TRACK_COUNT;
+            if (one.extralaps <= 0 && disttoend <= disttonext) {
+                one.state = PIECE_HOME;
+                one.finishpos = FINISH_COUNT - 1;
+                one.trapcount = 0;
+                jumpactive = false;
+                jumpfrom = -1;
+                jumpto = -1;
+                jumpowner = -1;
+                special = L"终点前同色直达停车区";
+                return L" 直接落到进终点前一格，改为跳到停车区最里面。";
+            }
+
             one.trackpos = next;
             jumpactive = true;
             jumpfrom = from;

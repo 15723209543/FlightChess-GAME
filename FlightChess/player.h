@@ -16,6 +16,7 @@ struct piece {
     int trackpos;        // 棋子在公共跑道上的格子编号。
     int finishpos;       // 棋子在终点列中的格子编号。
     int skipturns;       // 棋子需要暂停的剩余回合数。
+    bool skipfresh;      // 是否是本回合刚获得的暂停，防止刚设置就被立即扣掉。
     int trapcount;       // 棋子在当前圈内踩黑色陷阱次数。
     int extralaps;       // 棋子因陷阱需要额外多跑的圈数。
 

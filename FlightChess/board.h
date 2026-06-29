@@ -9,8 +9,6 @@ const int FINISH_COUNT = 6;
 enum celltype {
     CELL_NORMAL,   // 普通颜色格，可触发同色飞跃。
     CELL_START,    // 起点格，别人落到这里会停一回合。
-    CELL_REWARD,   // 奖励格，前进若干格。
-    CELL_PUNISH,   // 惩罚格，后退若干格。
     CELL_TRAP      // 黑色陷阱格，同圈第二次踩中要多跑一圈。
 };
 
@@ -41,8 +39,6 @@ public:
     cell finishcells[MAX_PLAYERS][FINISH_COUNT];         // 每个玩家的终点列格子。
     point2 basecenters[MAX_PLAYERS];                     // 每个玩家基地中心点。
     point2 homecenters[MAX_PLAYERS];                     // 每个玩家停车区棋子中心点。
-    std::map<int, int> rewardmap;                        // 奖励格：格号 -> 前进步数。
-    std::map<int, int> punishmap;                        // 惩罚格：格号 -> 后退步数。
     std::map<int, int> trapmap;                          // 黑色陷阱格：格号 -> 标记值。
 
     board();
