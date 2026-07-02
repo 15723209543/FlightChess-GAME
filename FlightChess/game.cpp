@@ -1,4 +1,5 @@
 #include "game.h"
+#include "keyboard.h"
 #include <algorithm>
 #include <ctime>
 #include <windows.h>
@@ -25,14 +26,16 @@ void game::init() {
     gameboard.init(numplayers);
 }
 
-// 游戏主循环：不断绘制当前界面，并等待鼠标点击。
+// 游戏主循环：不断绘制当前界面，并等待鼠标或键盘操作。
 void game::run() {
     while (!quit) {
         draw();
-        ExMessage msg; // msg：EasyX鼠标消息。
-        getmessage(&msg, EM_MOUSE);
+        ExMessage msg; // msg：EasyX输入消息。
+        getmessage(&msg, EM_MOUSE | EM_KEY);
         if (msg.message == WM_LBUTTONDOWN) {
             handle_click(msg.x, msg.y);
+        } else if (msg.message == WM_KEYDOWN) {
+            handle_keyboard(*this, msg.vkcode, msg.scancode);
         }
     }
 }

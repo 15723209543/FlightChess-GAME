@@ -61,6 +61,7 @@ public:
     ~game();
     void init();
     void run();
+    void handle_key(int key, int scancode);
 
 private:
     std::vector<snapshot> history;        // 返回上一步用的历史快照栈。

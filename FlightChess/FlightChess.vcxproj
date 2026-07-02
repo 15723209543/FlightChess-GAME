@@ -136,12 +136,15 @@
     <ClCompile Include="board.cpp" />
     <ClCompile Include="player.cpp" />
     <ClCompile Include="ui.cpp" />
+    <ClCompile Include="keyboard.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="game.h" />
     <ClInclude Include="board.h" />
     <ClInclude Include="player.h" />
     <ClInclude Include="ui.h" />
+    <ClInclude Include="keyboard.h" />
+    <ClInclude Include="keyboard_data.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
